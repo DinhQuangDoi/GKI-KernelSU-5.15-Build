@@ -1,0 +1,11 @@
+# Custom Commit Configuration
+# Enable specific SUSFS/SukiSU commits instead of latest
+
+# Enable custom commits (true/false)
+custom=false
+
+# SUSFS commit hash for gki-android13-5.15
+gki-android13-5.15=
+
+# SukiSU commit hash
+sukisu=
