@@ -99,5 +99,4 @@ jobs:
       use_bbg: ${{ inputs.use_bbg }}
       use_kpm: false
       use_rekernel: ${{ inputs.use_rekernel || false }}
-      supp_op: false
       enable_susfs: ${{ !inputs.cancel_susfs }}
