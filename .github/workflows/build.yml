@@ -290,10 +290,13 @@ jobs:
             echo "KSU_LATEST_COMMIT_DATE=unknown" >> $GITHUB_ENV
           fi
 
-      # ==================== Apply DroidSpaces kABI patch ====================
-      - name: Apply DroidSpaces kABI patch
+      # ==================== Apply DroidSpaces patches ====================
+      - name: Apply DroidSpaces patches
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
+          echo "Applying DroidSpaces patches..."
+
+          # Apply kABI patch for SYSVIPC
           if [ -f "$ZZH_PATCHES/config/patches/001.GKI-below-6.12-fix_sysvipc_kabi.patch" ]; then
             echo "Applying DroidSpaces kABI patch for SYSVIPC..."
             patch -p1 < "$ZZH_PATCHES/config/patches/001.GKI-below-6.12-fix_sysvipc_kabi.patch" || true
@@ -399,6 +402,7 @@ jobs:
 
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
             cat "$ZZH_PATCHES/config/zram.config" >> "$CONFIG_FILE"
+            echo "Applying DroidSpaces kernel config..."
             cat "$ZZH_PATCHES/config/droidspaces.config" >> "$CONFIG_FILE"
           fi
 
