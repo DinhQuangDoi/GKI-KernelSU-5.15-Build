@@ -390,7 +390,6 @@ jobs:
 
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
             cat "$ZZH_PATCHES/config/zram.config" >> "$CONFIG_FILE"
-            cat "$ZZH_PATCHES/config/droidspaces.config" >> "$CONFIG_FILE"
           fi
 
       # ==================== Add BBG anti-wipe patch ====================
