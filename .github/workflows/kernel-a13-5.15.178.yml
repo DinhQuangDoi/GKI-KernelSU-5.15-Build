@@ -1,4 +1,4 @@
-name: Build Kernel - Android 13 (5.15)
+name: Build Kernel - Android 13 (5.15.178)
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
