@@ -182,5 +182,5 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_kpm: ${{ inputs.use_kpm }}
-      use_rekernel: ${{ inputs.use_rekernel || false }}
+      use_rekernel: ${{ inputs.use_rekernel }}
       enable_susfs: ${{ needs.parse-version.outputs.enable_susfs }}
