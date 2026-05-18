@@ -43,6 +43,11 @@ on:
         type: boolean
         default: true
         required: false
+      use_kpm:
+        description: "Enable KPM (Kernel Parameter Management)"
+        type: boolean
+        default: true
+        required: false
       use_rekernel:
         description: "Enable Re-Kernel Driver"
         type: boolean
@@ -87,8 +92,12 @@ on:
         required: false
         type: boolean
         default: false
+      cancel_susfs:
+        required: false
+        type: boolean
+        default: false
       enable_susfs:
-        required: true
+        required: false
         type: boolean
         default: true
 
@@ -102,6 +111,7 @@ jobs:
       os_patch_level: ${{ steps.parse.outputs.os_patch_level }}
       android_version: ${{ steps.parse.outputs.android_version }}
       build_name: ${{ steps.parse.outputs.build_name }}
+      enable_susfs: ${{ steps.compute-susfs.outputs.enable_susfs }}
     steps:
       - name: Parse kernel_build_version
         id: parse
@@ -129,6 +139,32 @@ jobs:
             exit 1
           fi
 
+      - name: Compute SUSFS status
+        id: compute-susfs
+        run: |
+          # Determine enable_susfs based on inputs
+          # Prefer explicit enable_susfs if provided via workflow_call
+          # Otherwise use !cancel_susfs if provided via workflow_dispatch
+          
+          ENABLE_SUSFS="${{ inputs.enable_susfs }}"
+          CANCEL_SUSFS="${{ inputs.cancel_susfs }}"
+          
+          # If enable_susfs is not empty (from workflow_call), use it
+          if [ -n "$ENABLE_SUSFS" ] && [ "$ENABLE_SUSFS" != "null" ]; then
+            if [ "$ENABLE_SUSFS" = "true" ] || [ "$ENABLE_SUSFS" = "True" ]; then
+              echo "enable_susfs=true" >> $GITHUB_OUTPUT
+            else
+              echo "enable_susfs=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Otherwise compute from cancel_susfs (workflow_dispatch)
+            if [ "$CANCEL_SUSFS" = "true" ] || [ "$CANCEL_SUSFS" = "True" ]; then
+              echo "enable_susfs=false" >> $GITHUB_OUTPUT
+            else
+              echo "enable_susfs=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   build-kernel:
     name: "${{ needs.parse-version.outputs.build_name }}"
     needs: parse-version
@@ -147,4 +183,4 @@ jobs:
       use_bbg: ${{ inputs.use_bbg }}
       use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel || false }}
-      enable_susfs: ${{ inputs.enable_susfs }}
+      enable_susfs: ${{ needs.parse-version.outputs.enable_susfs }}
