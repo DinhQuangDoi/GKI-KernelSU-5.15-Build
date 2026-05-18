@@ -87,10 +87,7 @@ jobs:
     uses: ./.github/workflows/kernel-a13-5-15.yml
     secrets: inherit
     with:
-      android_version: "android13"
-      kernel_version: "5.15"
-      sub_level: "178"
-      os_patch_level: "2025-03"
+      kernel_build_version: "android13-5.15.178-2025-03"
       ksu_variant: "ReSukiSU"
       ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}

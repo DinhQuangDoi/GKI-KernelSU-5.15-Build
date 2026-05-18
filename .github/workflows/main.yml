@@ -14,6 +14,15 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
+      kernel_build_version:
+        description: "Kernel Build Version"
+        type: choice
+        options:
+          - android13-5.15.74-2022-12
+          - android13-5.15.178-2025-03
+        default: android13-5.15.74-2022-12
+        required: true
+
       kernelsu_branch:
         description: "KSU Branch (main/builtin/commit hash, empty = default)"
         type: string
@@ -57,10 +66,12 @@ jobs:
     uses: ./.github/workflows/kernel-a13-5-15.yml
     secrets: inherit
     with:
+      kernel_build_version: ${{ inputs.kernel_build_version }}
       kernelsu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time }}
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
+      use_kpm: false
       use_rekernel: ${{ inputs.use_rekernel || false }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      enable_susfs: ${{ !inputs.cancel_susfs }}
