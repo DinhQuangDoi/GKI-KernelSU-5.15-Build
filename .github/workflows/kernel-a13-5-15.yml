@@ -18,7 +18,16 @@ on:
           - android13-5.15.178-2025-03
         default: android13-5.15.74-2022-12
         required: true
-      kernelsu_branch:
+      ksu_variant:
+        description: "KSU Variant"
+        type: choice
+        options:
+          - ReSukiSU
+          - KernelSU
+          - KernelSU-Next
+        default: ReSukiSU
+        required: true
+      ksu_branch:
         description: "KSU Branch (main/builtin/commit hash, empty = default)"
         type: string
         default: ""
@@ -179,8 +188,8 @@ jobs:
       ksu_branch: ${{ inputs.ksu_branch }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time }}
-      use_zram: ${{ inputs.use_zram }}
-      use_bbg: ${{ inputs.use_bbg }}
-      use_kpm: ${{ inputs.use_kpm }}
-      use_rekernel: ${{ inputs.use_rekernel }}
-      enable_susfs: ${{ needs.parse-version.outputs.enable_susfs }}
+      use_zram: ${{ inputs.use_zram == true }}
+      use_bbg: ${{ inputs.use_bbg == true }}
+      use_kpm: ${{ inputs.use_kpm == true }}
+      use_rekernel: ${{ inputs.use_rekernel == true }}
+      enable_susfs: ${{ needs.parse-version.outputs.enable_susfs == 'true' }}
