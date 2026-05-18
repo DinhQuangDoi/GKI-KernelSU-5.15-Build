@@ -1,0 +1,144 @@
+name: Build Kernel - Android 13 (5.15)
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      android_version:
+        description: "Android version"
+        type: string
+        default: "android13"
+        required: false
+      kernel_version:
+        description: "Kernel version"
+        type: string
+        default: "5.15"
+        required: false
+      sub_level:
+        description: "Kernel sublevel (e.g. 74, 178)"
+        type: string
+        required: true
+      os_patch_level:
+        description: "OS patch level (e.g. 2022-12, 2025-03)"
+        type: string
+        required: true
+      kernelsu_branch:
+        description: "KSU Branch (main/builtin/commit hash, empty = default)"
+        type: string
+        default: ""
+        required: false
+      version:
+        description: "Custom version name (optional)"
+        type: string
+        default: ""
+        required: false
+      build_time:
+        description: "Custom build time (optional, N/empty = current UTC)"
+        type: string
+        default: "N"
+        required: false
+      use_zram:
+        description: "Enable ZRAM LZ4KD Compression"
+        type: boolean
+        default: true
+        required: false
+      use_bbg:
+        description: "Enable BBG (Baseband Guard)"
+        type: boolean
+        default: true
+        required: false
+      use_rekernel:
+        description: "Enable Re-Kernel Driver"
+        type: boolean
+        default: false
+        required: false
+      cancel_susfs:
+        description: "Disable SUSFS"
+        type: boolean
+        default: false
+        required: false
+      manifest_branch:
+        description: "Exact kernel manifest branch to checkout (optional)"
+        type: string
+        default: ""
+        required: false
+
+  workflow_call:
+    inputs:
+      android_version:
+        required: false
+        type: string
+        default: "android13"
+      kernel_version:
+        required: false
+        type: string
+        default: "5.15"
+      sub_level:
+        required: true
+        type: string
+      os_patch_level:
+        required: true
+        type: string
+      ksu_variant:
+        required: false
+        type: string
+        default: "ReSukiSU"
+      ksu_branch:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+      build_time:
+        required: false
+        type: string
+        default: "N"
+      use_zram:
+        required: true
+        type: boolean
+      use_bbg:
+        required: true
+        type: boolean
+      use_kpm:
+        required: true
+        type: boolean
+        default: true
+      use_rekernel:
+        required: false
+        type: boolean
+        default: false
+      enable_susfs:
+        required: true
+        type: boolean
+        default: true
+      manifest_branch:
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  build-kernel:
+    name: "${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}"
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      android_version: ${{ inputs.android_version }}
+      kernel_version: ${{ inputs.kernel_version }}
+      sub_level: ${{ inputs.sub_level }}
+      os_patch_level: ${{ inputs.os_patch_level }}
+      ksu_variant: ${{ inputs.ksu_variant }}
+      ksu_branch: ${{ inputs.ksu_branch }}
+      version: ${{ inputs.version || '' }}
+      build_time: ${{ inputs.build_time }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: ${{ inputs.use_bbg }}
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: ${{ inputs.use_rekernel || false }}
+      enable_susfs: ${{ inputs.enable_susfs }}
+      manifest_branch: ${{ inputs.manifest_branch || '' }}
