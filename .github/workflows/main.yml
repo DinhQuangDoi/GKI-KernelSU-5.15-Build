@@ -67,7 +67,7 @@ jobs:
     secrets: inherit
     with:
       kernel_build_version: ${{ inputs.kernel_build_version }}
-      kernelsu_branch: ${{ inputs.kernelsu_branch }}
+      ksu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time }}
       use_zram: ${{ inputs.use_zram }}
