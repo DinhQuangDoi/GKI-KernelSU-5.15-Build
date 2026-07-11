@@ -29,9 +29,7 @@ on:
       os_patch_level:
         required: true
         type: string
-      ksu_variant:
-        required: true
-        type: string
+
       ksu_branch:
         required: true
         type: string
@@ -302,8 +300,12 @@ jobs:
             KSU_LATEST_COMMIT_DATE=$(git -C KernelSU log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
             echo "KSU_LATEST_COMMIT_DATE=$KSU_LATEST_COMMIT_DATE" >> $GITHUB_ENV
             echo "KSU repository latest commit date: $KSU_LATEST_COMMIT_DATE"
+            
+            KSU_COMMIT=$(git -C KernelSU rev-parse --short HEAD)
+            echo "KSU_COMMIT=$KSU_COMMIT" >> $GITHUB_ENV
           else
             echo "KSU_LATEST_COMMIT_DATE=unknown" >> $GITHUB_ENV
+            echo "KSU_COMMIT=unknown" >> $GITHUB_ENV
           fi
 
       # ==================== Apply DroidSpaces patches ====================
@@ -500,10 +502,7 @@ jobs:
       # ==================== Enable KPM ====================
       - name: Enable KPM
         if: inputs.use_kpm
-        run: |
-          if [ "${{ inputs.ksu_variant }}" == "ReSukiSU" ]; then
-            echo "CONFIG_KPM=y" >> "$DEFCONFIG"
-          fi
+        run: echo "CONFIG_KPM=y" >> "$DEFCONFIG"
 
       # ==================== Add SUSFS configuration ====================
       - name: Add SUSFS configuration
@@ -675,3 +674,38 @@ jobs:
           path: patch-rejects/
           if-no-files-found: ignore
           compression-level: 9
+
+      # ==================== Display Build Summary ====================
+      - name: Display Build Summary
+        if: always()
+        run: |
+          KSU_BRANCH="${{ inputs.ksu_branch }}"
+          [ -z "$KSU_BRANCH" ] && KSU_BRANCH="main"
+          
+          # Detect actual commit/version if cloned
+          if [ -d "$KERNEL_ROOT/KernelSU/.git" ]; then
+            cd "$KERNEL_ROOT/KernelSU"
+            KSU_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+            cd - > /dev/null
+          else
+            KSU_VERSION="unknown"
+          fi
+
+          echo "### 🛠️ GKI Kernel Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Android Version** | ${{ inputs.android_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Kernel Version** | ${{ inputs.kernel_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Sub Level** | ${{ inputs.sub_level }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **OS Patch Level** | ${{ inputs.os_patch_level }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **KSU Variant** | ReSukiSU |" >> $GITHUB_STEP_SUMMARY
+          echo "| **KSU Commit** | ${{ env.KSU_COMMIT }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **KSU Version** | $KSU_VERSION |" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📲 Download ReSukiSU Manager APK" >> $GITHUB_STEP_SUMMARY
+          echo "Below is the download link for the ReSukiSU Manager APK built from branch/tag \`$KSU_BRANCH\`:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 **[Download ReSukiSU Manager APK (nightly.link)](https://nightly.link/ReSukiSU/ReSukiSU/workflows/build-manager.yml/\$KSU_BRANCH)**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 [ReSukiSU Repository Actions](https://github.com/ReSukiSU/ReSukiSU/actions)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 [cctv18/ReSukiSU_CI Releases](https://github.com/cctv18/ReSukiSU_CI/releases)" >> $GITHUB_STEP_SUMMARY
