@@ -59,6 +59,11 @@ on:
         type: boolean
         default: true
         required: false
+      custom_name:
+        description: "Custom name for KSU display (replaces commit SHA in ReSukiSU)"
+        type: string
+        default: ""
+        required: false
       cancel_susfs:
         description: "Disable SUSFS"
         type: boolean
@@ -103,6 +108,10 @@ on:
         required: false
         type: boolean
         default: true
+      custom_name:
+        required: false
+        type: string
+        default: ""
       enable_susfs:
         required: false
         type: boolean
@@ -191,4 +200,5 @@ jobs:
       use_kpm: ${{ inputs.use_kpm == true }}
       use_rekernel: ${{ inputs.use_rekernel == true }}
       use_droidspaces: ${{ inputs.use_droidspaces == true }}
+      custom_name: ${{ inputs.custom_name || '' }}
       enable_susfs: ${{ needs.parse-version.outputs.enable_susfs == 'true' }}

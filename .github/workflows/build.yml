@@ -60,6 +60,10 @@ on:
         required: false
         type: boolean
         default: true
+      custom_name:
+        required: false
+        type: string
+        default: ""
       enable_susfs:
         required: true
         type: boolean
@@ -512,6 +516,13 @@ jobs:
       - name: Enable KPM
         if: inputs.use_kpm
         run: echo "CONFIG_KPM=y" >> "$DEFCONFIG"
+
+      # ==================== Set KSU custom name ====================
+      - name: Set KSU custom name
+        if: inputs.custom_name != ''
+        run: |
+          echo "Setting KSU_FULL_NAME_FORMAT with custom name: ${{ inputs.custom_name }}"
+          echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-${{ inputs.custom_name }}@%REPO_NAME%"' >> "$DEFCONFIG"
 
       # ==================== Add SUSFS configuration ====================
       - name: Add SUSFS configuration
