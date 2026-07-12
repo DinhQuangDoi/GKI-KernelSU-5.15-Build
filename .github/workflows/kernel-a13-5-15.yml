@@ -54,6 +54,11 @@ on:
         type: boolean
         default: false
         required: false
+      use_droidspaces:
+        description: "Enable DroidSpaces Kernel Config (USER_NS, IPC_NS, PID_NS, Netfilter)"
+        type: boolean
+        default: true
+        required: false
       cancel_susfs:
         description: "Disable SUSFS"
         type: boolean
@@ -94,6 +99,10 @@ on:
         required: false
         type: boolean
         default: false
+      use_droidspaces:
+        required: false
+        type: boolean
+        default: true
       enable_susfs:
         required: false
         type: boolean
@@ -181,4 +190,5 @@ jobs:
       use_bbg: ${{ inputs.use_bbg == true }}
       use_kpm: ${{ inputs.use_kpm == true }}
       use_rekernel: ${{ inputs.use_rekernel == true }}
+      use_droidspaces: ${{ inputs.use_droidspaces == true }}
       enable_susfs: ${{ needs.parse-version.outputs.enable_susfs == 'true' }}

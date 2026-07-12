@@ -56,6 +56,10 @@ on:
         required: false
         type: boolean
         default: false
+      use_droidspaces:
+        required: false
+        type: boolean
+        default: true
       enable_susfs:
         required: true
         type: boolean
@@ -424,6 +428,7 @@ jobs:
 
       # ==================== Apply DroidSpaces kernel config ====================
       - name: Apply DroidSpaces kernel config
+        if: inputs.use_droidspaces
         run: |
           echo "Applying DroidSpaces kernel config..."
           cat "$ZZH_PATCHES/config/droidspaces.config" >> "$DEFCONFIG"
