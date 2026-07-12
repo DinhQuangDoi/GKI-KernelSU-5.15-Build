@@ -420,9 +420,13 @@ jobs:
 
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
             cat "$ZZH_PATCHES/config/zram.config" >> "$CONFIG_FILE"
-            echo "Applying DroidSpaces kernel config..."
-            cat "$ZZH_PATCHES/config/droidspaces.config" >> "$CONFIG_FILE"
           fi
+
+      # ==================== Apply DroidSpaces kernel config ====================
+      - name: Apply DroidSpaces kernel config
+        run: |
+          echo "Applying DroidSpaces kernel config..."
+          cat "$ZZH_PATCHES/config/droidspaces.config" >> "$DEFCONFIG"
 
       # ==================== Add BBG anti-wipe patch ====================
       - name: Add BBG anti-wipe patch
