@@ -713,8 +713,4 @@ jobs:
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📲 Download ReSukiSU Manager APK" >> $GITHUB_STEP_SUMMARY
-          echo "Below is the download link for the ReSukiSU Manager APK built from branch/tag \`$KSU_BRANCH\`:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- 📦 **[Download ReSukiSU Manager APK (nightly.link)](https://nightly.link/ReSukiSU/ReSukiSU/workflows/build-manager.yml/\$KSU_BRANCH)**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 [ReSukiSU Repository Actions](https://github.com/ReSukiSU/ReSukiSU/actions)" >> $GITHUB_STEP_SUMMARY
           echo "- 🔗 [cctv18/ReSukiSU_CI Releases](https://github.com/cctv18/ReSukiSU_CI/releases)" >> $GITHUB_STEP_SUMMARY
