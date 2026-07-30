@@ -16,6 +16,14 @@ already_patched() {
 	grep -q "ksu_handle_" "$1" 2>/dev/null
 }
 
+# Helper: run a perl script from a heredoc
+run_perl() {
+	local file="$1"
+	local label="$2"
+	shift 2
+	perl -i -0777 -p "$@" "$file"
+}
+
 # ================================================================
 # 1. fs/stat.c - stat hooks
 # ================================================================
@@ -27,77 +35,68 @@ elif already_patched "$file"; then
 else
 	echo "Patching: $file"
 
-	# Add extern declarations after newlstat function (before #if !defined guard)
+	# Add extern declarations after newlstat
 	perl -i -0777 -pe '
-		# Find the end of newlstat and insert extern declarations before the #if guard
-		s{
-			(return\s+cp_new_stat\(\&stat,\s*statbuf\);\s*\n\s*\})
-			(\s*\n\s*\#if\s+\!defined\(__ARCH_WANT_STAT64\))
-		}{
-			$1 . "\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
-			"__attribute__((hot))\n" .
-			"extern int ksu_handle_stat(int *dfd, const char __user **filename_user,\n" .
-			"\t\t\t\tint *flags);\n" .
-			"extern void ksu_handle_newfstat_ret(unsigned int *fd,\n" .
-			"\t\t\t\tstruct stat __user **statbuf_ptr);\n" .
-			"#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)\n" .
-			"extern void ksu_handle_fstat64_ret(unsigned long *fd,\n" .
-			"\t\t\t\tstruct stat64 __user **statbuf_ptr);\n" .
-			"#endif\n" .
-			"#endif\n\n" .
-			$2
-		}xe
+		my $pat1 = qr/(return\s+cp_new_stat\(&stat,\s*statbuf\);\s*\n\s*\})/;
+		my $pat2 = qr/(\s*\n\s*\#if\s+\!defined\(__ARCH_WANT_STAT64\))/;
+		if (/$pat1$pat2/) {
+			my $insert = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+				"__attribute__((hot))\n" .
+				"extern int ksu_handle_stat(int *dfd, const char __user **filename_user,\n" .
+				"\t\t\t\tint *flags);\n" .
+				"extern void ksu_handle_newfstat_ret(unsigned int *fd,\n" .
+				"\t\t\t\tstruct stat __user **statbuf_ptr);\n" .
+				"#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)\n" .
+				"extern void ksu_handle_fstat64_ret(unsigned long *fd,\n" .
+				"\t\t\t\tstruct stat64 __user **statbuf_ptr);\n" .
+				"#endif\n" .
+				"#endif\n";
+			s/$pat1$pat2/$1\n$insert$2/;
+		}
 	' "$file"
 
-	# Add ksu_handle_stat call in newfstatat after local vars
+	# Add ksu_handle_stat in newfstatat body
 	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE4\(newfstatat,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*struct\s+stat\s+__user\s*\*,\s*statbuf,\s*int,\s*flag\)\s*\n\s*\{\s*\n\s*struct\s+kstat\s+stat;\s*\n\s*int\s+error;)
-		}{
-			$1 . "\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
-			"\tksu_handle_stat(&dfd, &filename, &flag);\n" .
-			"#endif"
-		}xe
+		my $pat = qr/(SYSCALL_DEFINE4\(newfstatat,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*struct\s+stat\s+__user\s*\*,\s*statbuf,\s*int,\s*flag\)\s*\n\s*\{\s*\n\s*struct\s+kstat\s+stat;\s*\n\s*int\s+error;)/;
+		if (/$pat/) {
+			my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+				"\tksu_handle_stat(&dfd, &filename, &flag);\n" .
+				"#endif";
+			s/$pat/$1$hook/;
+		}
 	' "$file"
 
-	# Add ksu_handle_stat call in fstatat64 after local vars
+	# Add ksu_handle_stat in fstatat64 body
 	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE4\(fstatat64,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*struct\s+stat64\s+__user\s*\*,\s*statbuf,\s*int,\s*flag\)\s*\n\s*\{\s*\n\s*struct\s+kstat\s+stat;\s*\n\s*int\s+error;)
-		}{
-			$1 . "\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
-			"\tksu_handle_stat(&dfd, &filename, &flag);\n" .
-			"#endif"
-		}xe
+		my $pat = qr/(SYSCALL_DEFINE4\(fstatat64,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*struct\s+stat64\s+__user\s*\*,\s*statbuf,\s*int,\s*flag\)\s*\n\s*\{\s*\n\s*struct\s+kstat\s+stat;\s*\n\s*int\s+error;)/;
+		if (/$pat/) {
+			my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+				"\tksu_handle_stat(&dfd, &filename, &flag);\n" .
+				"#endif";
+			s/$pat/$1$hook/;
+		}
 	' "$file"
 
 	# Add ksu_handle_newfstat_ret before return in newfstat
 	perl -i -0777 -pe '
-		s{
-			(if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat\(\&stat,\s*statbuf\);\s*\n)
-			(\s+return\s+error;)
-		}{
-			$1 . "\t" . '#ifdef CONFIG_KSU_MANUAL_HOOK' . "\n" .
-			"\tksu_handle_newfstat_ret(&fd, &statbuf);\n" .
-			"\t" . '#endif' . "\n" .
-			$2
-		}xe
+		my $pat = qr/(if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat\(&stat,\s*statbuf\);\s*\n)(\s+return\s+error;)/;
+		if (/$pat/) {
+			my $hook = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+				"\tksu_handle_newfstat_ret(&fd, &statbuf);\n" .
+				"#endif\n";
+			s/$pat/$1\t$hook$2/;
+		}
 	' "$file"
 
 	# Add ksu_handle_fstat64_ret before return in fstat64
 	perl -i -0777 -pe '
-		s{
-			(if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat64\(\&stat,\s*statbuf\);\s*\n)
-			(\s+return\s+error;)
-		}{
-			$1 . "\t" . '#ifdef CONFIG_KSU_MANUAL_HOOK' . "\n" .
-			"\tksu_handle_fstat64_ret(&fd, &statbuf);\n" .
-			"\t" . '#endif' . "\n" .
-			$2
-		}xe
+		my $pat = qr/(if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat64\(&stat,\s*statbuf\);\s*\n)(\s+return\s+error;)/;
+		if (/$pat/) {
+			my $hook = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+				"\tksu_handle_fstat64_ret(&fd, &statbuf);\n" .
+				"#endif\n";
+			s/$pat/$1\t$hook$2/;
+		}
 	' "$file"
 
 	if already_patched "$file"; then
@@ -118,53 +117,29 @@ elif already_patched "$file"; then
 else
 	echo "Patching: $file"
 
-	# Add extern declaration before do_execve and hook call inside do_execve
+	# Insert extern declaration before do_execve, and hook call inside do_execve + compat_do_execve
 	perl -i -0777 -pe '
-		# Insert extern declaration before do_execve
-		s{
-			(int\s+do_execve\s*\(\s*struct\s+filename\s*\*\s*filename,)
-		}{
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		# extern before do_execve
+		my $decl = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"__attribute__((hot))\n" .
 			"extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,\n" .
 			"\t\t\t\tvoid *argv, void *envp, int *flags);\n" .
-			"#endif\n\n" .
-			$1
-		}xe
-	' "$file"
+			"#endif\n";
+		s/(int\s+do_execve\s*\(\s*struct\s+filename\s*\*\s*filename,)/$decl$1/;
 
-	# Add ksu_handle_execveat call in do_execve after local var setup
-	perl -i -0777 -pe '
-		s{
-			(int\s+do_execve\s*\(\s*struct\s+filename\s*\*\s*filename,\s*)
-			(.*?)
-			(\s*struct\s+user_arg_ptr\s+envp\s*=\s*\{\s*\.ptr\.native\s*=\s*__envp\s*\}\s*;)
-		}{
-			my $decl = $1;
-			my $mid = $2;
-			my $envp_line = $3;
-			$decl . $mid . $envp_line . "\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		# ksu_handle_execveat in do_execve body
+		my $hook_do = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);\n" .
-			"#endif"
-		}xse
-	' "$file"
+			"#endif";
+		my $pat_do = qr/(int\s+do_execve\s*\(.*?struct\s+user_arg_ptr\s+envp\s*=\s*\{\s*\.ptr\.native\s*=\s*__envp\s*\}\s*;)/s;
+		s/$pat_do/$1$hook_do/s;
 
-	# Add ksu_handle_execveat in compat_do_execve after local var setup
-	perl -i -0777 -pe '
-		s{
-			(static\s+int\s+compat_do_execve\s*\(\s*struct\s+filename\s*\*\s*filename,)
-			(.*?)
-			(\.ptr\.compat\s*=\s*__envp\s*\}\s*;)
-		}{
-			my $decl = $1;
-			my $mid = $2;
-			my $envp_end = $3;
-			$decl . $mid . $envp_end . "\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		# ksu_handle_execveat in compat_do_execve body
+		my $hook_compat = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);\n" .
-			"#endif"
-		}xse
+			"#endif";
+		my $pat_compat = qr/(static\s+int\s+compat_do_execve\s*\(.*?\.ptr\.compat\s*=\s*__envp\s*\}\s*;)/s;
+		s/$pat_compat/$1$hook_compat/s;
 	' "$file"
 
 	if already_patched "$file"; then
@@ -185,32 +160,21 @@ elif already_patched "$file"; then
 else
 	echo "Patching: $file"
 
-	# Add extern declaration before SYSCALL_DEFINE3(faccessat, ...)
 	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE3\(faccessat,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*int,\s*mode\))
-		}{
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		# Add extern and hook call
+		my $decl = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"__attribute__((hot))\n" .
 			"extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,\n" .
 			"\t\t\t\tint *mode, int *flags);\n" .
-			"#endif\n\n" .
-			$1
-		}xe
-	' "$file"
+			"#endif\n";
+		my $pat = qr/(SYSCALL_DEFINE3\(faccessat,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*int,\s*mode\))/;
+		s/$pat/$decl$1/;
 
-	# Add ksu_handle_faccessat call at beginning of faccessat function body
-	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE3\(faccessat,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*int,\s*mode\)\s*\n\s*\{\s*\n)
-			(\s*return\s+do_faccessat\(dfd,\s*filename,\s*mode\);)
-		}{
-			$1 .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tksu_handle_faccessat(&dfd, &filename, &mode, NULL);\n" .
-			"#endif\n" .
-			$2
-		}xe
+			"#endif\n";
+		my $pat2 = qr/(SYSCALL_DEFINE3\(faccessat,\s*int,\s*dfd,\s*const\s+char\s+__user\s*\*,\s*filename,\s*int,\s*mode\)\s*\n\s*\{\s*\n)(\s*return\s+do_faccessat\(dfd,\s*filename,\s*mode\);)/;
+		s/$pat2/$1$hook$2/;
 	' "$file"
 
 	if already_patched "$file"; then
@@ -231,34 +195,19 @@ elif already_patched "$file"; then
 else
 	echo "Patching: $file"
 
-	# Add extern declaration before SYSCALL_DEFINE4(reboot, ...)
 	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE4\(reboot,\s*int,\s*magic1,\s*int,\s*magic2,\s*unsigned\s+int,\s*cmd,)
-		}{
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $decl = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"extern int ksu_handle_sys_reboot(int magic1, int magic2,\n" .
 			"\t\t\t\tunsigned int cmd, void __user **arg);\n" .
-			"#endif\n\n" .
-			$1
-		}xe
-	' "$file"
+			"#endif\n";
+		my $pat = qr/(SYSCALL_DEFINE4\(reboot,\s*int,\s*magic1,\s*int,\s*magic2,\s*unsigned\s+int,\s*cmd,)/;
+		s/$pat/$decl$1/;
 
-	# Add ksu_handle_sys_reboot call after local vars in reboot syscall
-	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE4\(reboot,\s*int,\s*magic1,\s*int,\s*magic2,\s*unsigned\s+int,\s*cmd,\s*void\s+__user\s*\*,\s*arg\)\s*\n\s*\{\s*\n)
-			(.*?)
-			(int\s+ret\s*=\s*0;)
-		}{
-			my $sig = $1;
-			my $mid = $2;
-			my $ret = $3;
-			$sig . $mid . $ret . "\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tksu_handle_sys_reboot(magic1, magic2, cmd, &arg);\n" .
-			"#endif"
-		}xse
+			"#endif";
+		my $pat2 = qr/(SYSCALL_DEFINE4\(reboot,\s*int,\s*magic1,\s*int,\s*magic2,\s*unsigned\s+int,\s*cmd,\s*void\s+__user\s*\*,\s*arg\)\s*\n\s*\{\s*\n.*?int\s+ret\s*=\s*0;)/s;
+		s/$pat2/$1$hook/s;
 	' "$file"
 
 	if already_patched "$file"; then
@@ -279,36 +228,21 @@ elif grep -q "ksu_input_hook" "$file" 2>/dev/null; then
 else
 	echo "Patching: $file"
 
-	# Add extern declarations and hook call in input_event
 	perl -i -0777 -pe '
-		s{
-			(void\s+input_event\s*\(\s*struct\s+input_dev\s*\*\s*dev,)
-		}{
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $decl = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"extern bool ksu_input_hook __read_mostly;\n" .
 			"extern __attribute__((cold)) int ksu_handle_input_handle_event(\n" .
 			"\t\t\tunsigned int *type, unsigned int *code, int *value);\n" .
-			"#endif\n\n" .
-			$1
-		}xe
-	' "$file"
+			"#endif\n";
+		my $pat = qr/(void\s+input_event\s*\(\s*struct\s+input_dev\s*\*\s*dev,)/;
+		s/$pat/$decl$1/;
 
-	# Add ksu_input_hook check inside input_event
-	perl -i -0777 -pe '
-		s{
-			(void\s+input_event\s*\(\s*struct\s+input_dev\s*\*\s*dev,)
-			(.*?)
-			(unsigned\s+long\s+flags;)
-		}{
-			my $sig = $1;
-			my $mid = $2;
-			my $flags = $3;
-			$sig . $mid . $flags . "\n\n" .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tif (unlikely(ksu_input_hook))\n" .
 			"\t\tksu_handle_input_handle_event(&type, &code, &value);\n" .
-			"#endif"
-		}xse
+			"#endif";
+		my $pat2 = qr/(void\s+input_event\s*\(.*?unsigned\s+long\s+flags;)/s;
+		s/$pat2/$1$hook/s;
 	' "$file"
 
 	if grep -q "ksu_input_hook" "$file" 2>/dev/null; then
@@ -329,34 +263,20 @@ elif already_patched "$file"; then
 else
 	echo "Patching: $file"
 
-	# Add extern declaration before __sys_setresuid
 	perl -i -0777 -pe '
-		s{
-			(long\s+__sys_setresuid\s*\(\s*uid_t\s+ruid,\s*uid_t\s+euid,\s*uid_t\s+suid\))
-		}{
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $decl = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"extern int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid);\n" .
-			"#endif\n\n" .
-			$1
-		}xe
-	' "$file"
+			"#endif\n";
+		my $pat = qr/(long\s+__sys_setresuid\s*\(\s*uid_t\s+ruid,\s*uid_t\s+euid,\s*uid_t\s+suid\))/;
+		s/$pat/$decl$1/;
 
-	# Add ksu_handle_setresuid call in __sys_setresuid after declarations
-	perl -i -0777 -pe '
-		s{
-			(long\s+__sys_setresuid\s*\(\s*uid_t\s+ruid,\s*uid_t\s+euid,\s*uid_t\s+suid\)\s*\n\s*\{\s*\n)
-			(.*?)
-			(kruid\s*=\s*make_kuid\(ns,\s*ruid\);)
-		}{
-			my $sig = $1;
-			my $mid = $2;
-			my $mk = $3;
-			$sig . $mid .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\t(void)ksu_handle_setresuid(ruid, euid, suid);\n" .
-			"#endif\n\n" .
-			"\t" . $mk
-		}xse
+			"#endif\n";
+		my $pat2 = qr/(long\s+__sys_setresuid\s*\(.*?\n\s*\{\s*\n)(.*?\n)(\s*kruid\s*=\s*make_kuid\(ns,\s*ruid\);)/s;
+		if (/$pat2/) {
+			s/$pat2/$1$2$hook\t$3/s;
+		}
 	' "$file"
 
 	if already_patched "$file"; then
@@ -377,33 +297,21 @@ elif already_patched "$file"; then
 else
 	echo "Patching: $file"
 
-	# Add extern declarations before SYSCALL_DEFINE3(read, ...)
 	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE3\(read,\s*unsigned\s+int,\s*fd,\s*char\s+__user\s*\*,\s*buf,\s*size_t,\s*count\))
-		}{
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $decl = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"extern bool ksu_init_rc_hook __read_mostly;\n" .
 			"extern __attribute__((cold)) int ksu_handle_sys_read(unsigned int fd,\n" .
 			"\t\t\t\tchar __user **buf_ptr, size_t *count_ptr);\n" .
-			"#endif\n\n" .
-			$1
-		}xe
-	' "$file"
+			"#endif\n";
+		my $pat = qr/(SYSCALL_DEFINE3\(read,\s*unsigned\s+int,\s*fd,\s*char\s+__user\s*\*,\s*buf,\s*size_t,\s*count\))/;
+		s/$pat/$decl$1/;
 
-	# Add ksu_init_rc_hook check inside read syscall
-	perl -i -0777 -pe '
-		s{
-			(SYSCALL_DEFINE3\(read,\s*unsigned\s+int,\s*fd,\s*char\s+__user\s*\*,\s*buf,\s*size_t,\s*count\)\s*\n\s*\{\s*\n)
-			(return\s+ksys_read\(fd,\s*buf,\s*count\);)
-		}{
-			$1 .
-			"#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
+		my $hook = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tif (unlikely(ksu_init_rc_hook))\n" .
 			"\t\tksu_handle_sys_read(fd, &buf, &count);\n" .
-			"#endif\n" .
-			"\t" . $2
-		}xe
+			"#endif\n";
+		my $pat2 = qr/(SYSCALL_DEFINE3\(read,\s*unsigned\s+int,\s*fd,\s*char\s+__user\s*\*,\s*buf,\s*size_t,\s*count\)\s*\n\s*\{\s*\n)(return\s+ksys_read\(fd,\s*buf,\s*count\);)/;
+		s/$pat2/$1$hook\t$2/;
 	' "$file"
 
 	if already_patched "$file"; then
