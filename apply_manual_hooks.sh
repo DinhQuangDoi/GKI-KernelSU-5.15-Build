@@ -77,25 +77,25 @@ else
 		}
 	' "$file"
 
-	# Add ksu_handle_newfstat_ret before return in newfstat
+	# Add ksu_handle_newfstat_ret before return in newfstat only (not newfstatat)
 	perl -i -0777 -pe '
-		my $pat = qr/(if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat\(&stat,\s*statbuf\);\s*\n)(\s+return\s+error;)/;
+		my $pat = qr/(SYSCALL_DEFINE2\(newfstat,\s*unsigned\s+int,\s*fd,.*?if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat\(&stat,\s*statbuf\);\s*\n)(\s+return\s+error;)/s;
 		if (/$pat/) {
 			my $hook = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 				"\tksu_handle_newfstat_ret(&fd, &statbuf);\n" .
 				"#endif\n";
-			s/$pat/$1\t$hook$2/;
+			s/$pat/$1\t$hook$2/s;
 		}
 	' "$file"
 
-	# Add ksu_handle_fstat64_ret before return in fstat64
+	# Add ksu_handle_fstat64_ret before return in fstat64 only (not fstatat64)
 	perl -i -0777 -pe '
-		my $pat = qr/(if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat64\(&stat,\s*statbuf\);\s*\n)(\s+return\s+error;)/;
+		my $pat = qr/(SYSCALL_DEFINE2\(fstat64,\s*unsigned\s+long,\s*fd,.*?if\s*\(!error\)\s*\n\s+error\s*=\s*cp_new_stat64\(&stat,\s*statbuf\);\s*\n)(\s+return\s+error;)/s;
 		if (/$pat/) {
 			my $hook = "#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 				"\tksu_handle_fstat64_ret(&fd, &statbuf);\n" .
 				"#endif\n";
-			s/$pat/$1\t$hook$2/;
+			s/$pat/$1\t$hook$2/s;
 		}
 	' "$file"
 
