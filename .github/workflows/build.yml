@@ -68,6 +68,10 @@ on:
         required: true
         type: boolean
         default: true
+      enable_manual_hook:
+        required: false
+        type: boolean
+        default: false
       manifest_branch:
         required: false
         type: string
@@ -99,6 +103,7 @@ jobs:
           echo "KSU Branch    : ${{ inputs.ksu_branch }}"
           echo "Build Time    : ${{ inputs.build_time }}"
           echo "SUSFS Status  : ${{ inputs.enable_susfs }}"
+          echo "Manual Hook   : ${{ inputs.enable_manual_hook }}"
           echo "ZRAM Enhance  : ${{ inputs.use_zram }}"
           echo "BBG Patches  : ${{ inputs.use_bbg }}"
           echo "KPM Feature  : ${{ inputs.use_kpm }}"
@@ -383,6 +388,14 @@ jobs:
         run: |
           patch -p1 --forward < "$ACTION_BUILD/patches/unicode_bypass_fix_6.1-.patch" || true
 
+      # ==================== Apply Manual Hooks (ReSukiSU) ====================
+      - name: Apply Manual Hooks
+        if: inputs.enable_manual_hook
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          echo "Applying ReSukiSU manual hooks..."
+          bash "$ZZH_PATCHES/apply_manual_hooks.sh"
+
       # ==================== Configure ZRAM LZ4 patch stack ====================
       - name: Configure ZRAM LZ4 patch stack
         if: inputs.use_zram
@@ -540,6 +553,16 @@ jobs:
           CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
           CONFIG_KSU_SUSFS_SUS_MAP=y
           EOF
+
+      # ==================== Add Manual Hook configuration ====================
+      - name: Add Manual Hook configuration
+        if: inputs.enable_manual_hook
+        run: |
+          echo "Enabling CONFIG_KSU_MANUAL_HOOK and CONFIG_KALLSYMS_ALL..."
+          grep -q '^CONFIG_KSU_MANUAL_HOOK=y$' "$DEFCONFIG" || \
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$DEFCONFIG"
+          grep -q '^CONFIG_KALLSYMS_ALL=y$' "$DEFCONFIG" || \
+            echo "CONFIG_KALLSYMS_ALL=y" >> "$DEFCONFIG"
 
       # ==================== Configure kernel name ====================
       - name: Configure kernel name
