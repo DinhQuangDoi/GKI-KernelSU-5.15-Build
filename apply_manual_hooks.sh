@@ -125,20 +125,20 @@ else
 			"extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,\n" .
 			"\t\t\t\tvoid *argv, void *envp, int *flags);\n" .
 			"#endif\n";
-		s/(int\s+do_execve\s*\(\s*struct\s+filename\s*\*\s*filename,)/$decl$1/;
+		s/((?:static\s+)?int\s+do_execve\s*\(\s*struct\s+filename\s*\*\s*filename,)/$decl$1/;
 
 		# ksu_handle_execveat in do_execve body
 		my $hook_do = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);\n" .
 			"#endif";
-		my $pat_do = qr/(int\s+do_execve\s*\(.*?struct\s+user_arg_ptr\s+envp\s*=\s*\{\s*\.ptr\.native\s*=\s*__envp\s*\}\s*;)/s;
+		my $pat_do = qr/((?:static\s+)?int\s+do_execve\s*\(.*?struct\s+user_arg_ptr\s+envp\s*=\s*\{\s*\.ptr\.native\s*=\s*__envp\s*\}\s*;)/s;
 		s/$pat_do/$1$hook_do/s;
 
 		# ksu_handle_execveat in compat_do_execve body
 		my $hook_compat = "\n#ifdef CONFIG_KSU_MANUAL_HOOK\n" .
 			"\tksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);\n" .
 			"#endif";
-		my $pat_compat = qr/(static\s+int\s+compat_do_execve\s*\(.*?\.ptr\.compat\s*=\s*__envp\s*\}\s*;)/s;
+		my $pat_compat = qr/((?:static\s+)?int\s+compat_do_execve\s*\(.*?\.ptr\.compat\s*=\s*__envp\s*\}\s*;)/s;
 		s/$pat_compat/$1$hook_compat/s;
 	' "$file"
 
